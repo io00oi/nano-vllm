@@ -13,6 +13,7 @@ A lightweight vLLM implementation built from scratch.
 ## Key Features
 
 * 🚀 **Fast offline inference** - Comparable inference speeds to vLLM
+* 🌐 **Online API Server** - OpenAI-compatible API with streaming support
 * 📖 **Readable codebase** - Clean implementation in ~ 1,200 lines of Python code
 * ⚡ **Optimization Suite** - Prefix caching, Tensor Parallelism, Torch compilation, CUDA graph, etc.
 
@@ -33,6 +34,8 @@ huggingface-cli download --resume-download Qwen/Qwen3-0.6B \
 
 ## Quick Start
 
+### Offline Inference
+
 See `example.py` for usage. The API mirrors vLLM's interface with minor differences in the `LLM.generate` method:
 ```python
 from nanovllm import LLM, SamplingParams
@@ -42,6 +45,50 @@ prompts = ["Hello, Nano-vLLM."]
 outputs = llm.generate(prompts, sampling_params)
 outputs[0]["text"]
 ```
+
+### Online Inference with Streaming
+
+Start the API server:
+```bash
+python api_server.py --model-path /YOUR/MODEL/PATH
+```
+
+Use streaming chat API (OpenAI-compatible):
+```python
+import requests
+import json
+
+response = requests.post(
+    "http://localhost:8000/v1/chat/completions",
+    json={
+        "messages": [{"role": "user", "content": "Hello!"}],
+        "stream": True,
+        "max_tokens": 256
+    },
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line:
+        line = line.decode('utf-8')
+        if line.startswith('data: '):
+            data = json.loads(line[6:])
+            if data != '[DONE]':
+                content = data['choices'][0]['delta'].get('content', '')
+                print(content, end='', flush=True)
+```
+
+Or use non-streaming mode:
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "stream": false
+  }'
+```
+
+See `API_USAGE.md` for detailed API documentation and `test_streaming.py` for more examples.
 
 ## Benchmark
 
