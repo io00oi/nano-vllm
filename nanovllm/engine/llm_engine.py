@@ -91,3 +91,60 @@ class LLMEngine:
         if use_tqdm:
             pbar.close()
         return outputs
+    
+    def generate_stream(
+        self,
+        prompt: str | list[int],
+        sampling_params: SamplingParams,
+    ):
+        """流式生成 - 逐个 token 返回"""
+        # 添加单个请求
+        self.add_request(prompt, sampling_params)
+        
+        # 获取序列ID（最新添加的）
+        seq = self.scheduler.waiting[-1]
+        target_seq_id = seq.seq_id
+        
+        # 记录已生成的token数
+        generated_tokens = 0
+        
+        while not self.is_finished():
+            # 执行一步推理
+            outputs, _ = self.step()
+            
+            # 检查目标序列是否有新输出
+            for seq_id, token_ids in outputs:
+                if seq_id == target_seq_id:
+                    # 计算新生成的token
+                    new_tokens = token_ids[generated_tokens:]
+                    generated_tokens = len(token_ids)
+                    
+                    # 解码新token
+                    new_text = self.tokenizer.decode(new_tokens, skip_special_tokens=False)
+                    
+                    # 返回新生成的文本和是否完成
+                    yield {
+                        "text": new_text,
+                        "token_ids": new_tokens,
+                        "finished": True  # 这个请求已完成
+                    }
+                    return  # 序列完成，退出
+            
+            # 如果这一步没有完成，检查是否生成了新token
+            # 在decode阶段，每个序列都会生成一个token
+            for seq in self.scheduler.running:
+                if seq.seq_id == target_seq_id:
+                    current_tokens = seq.completion_token_ids
+                    if len(current_tokens) > generated_tokens:
+                        new_tokens = current_tokens[generated_tokens:]
+                        generated_tokens = len(current_tokens)
+                        
+                        # 解码新token
+                        new_text = self.tokenizer.decode(new_tokens, skip_special_tokens=False)
+                        
+                        yield {
+                            "text": new_text,
+                            "token_ids": new_tokens,
+                            "finished": False
+                        }
+                    break

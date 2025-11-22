@@ -12,11 +12,13 @@ readme = "README.md"
 description = "a lightweight vLLM implementation built from scratch"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-    "torch>=2.4.0",
-    "triton>=3.0.0",
-    "transformers>=4.51.0",
-    "flash-attn",
-    "xxhash",
+    "torch==2.4.0+cu121",
+    "triton==3.0.0",
+    "transformers==4.51.3",
+    "flash-attn==2.7.4.post1",
+    "xxhash==3.5.0",
+    "fastapi==0.115.12",
+    "uvicorn==0.34.2",
 ]
 
 [project.urls]
